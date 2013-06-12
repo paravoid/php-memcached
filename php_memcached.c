@@ -313,7 +313,7 @@ PHP_INI_END()
 /****************************************
   Forward declarations
 ****************************************/
-static int php_memc_handle_error(php_memc_t *i_obj, memcached_return status TSRMLS_DC);
+static int php_memc_handle_error(php_memc_t *i_obj, memcached_return_t status TSRMLS_DC);
 static char *php_memc_zval_to_payload(zval *value, size_t *payload_len, uint32_t *flags, enum memcached_serializer serializer, enum memcached_compression_type compression_type TSRMLS_DC);
 static int php_memc_zval_from_payload(zval *value, char *payload, size_t payload_len, uint32_t flags, enum memcached_serializer serializer TSRMLS_DC);
 static void php_memc_get_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key);
@@ -323,16 +323,16 @@ static void php_memc_setMulti_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_ke
 static void php_memc_delete_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key);
 static void php_memc_deleteMulti_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key);
 static void php_memc_getDelayed_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key);
-static memcached_return php_memc_do_cache_callback(zval *memc_obj, zend_fcall_info *fci, zend_fcall_info_cache *fcc, char *key, size_t key_len, zval *value TSRMLS_DC);
+static memcached_return_t php_memc_do_cache_callback(zval *memc_obj, zend_fcall_info *fci, zend_fcall_info_cache *fcc, char *key, size_t key_len, zval *value TSRMLS_DC);
 static int php_memc_do_result_callback(zval *memc_obj, zend_fcall_info *fci, zend_fcall_info_cache *fcc, memcached_result_st *result TSRMLS_DC);
 #if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000009
-static memcached_return php_memc_do_serverlist_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
-static memcached_return php_memc_do_stats_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
-static memcached_return php_memc_do_version_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
+static memcached_return_t php_memc_do_serverlist_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
+static memcached_return_t php_memc_do_stats_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
+static memcached_return_t php_memc_do_version_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context);
 #else
-static memcached_return php_memc_do_serverlist_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
-static memcached_return php_memc_do_stats_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
-static memcached_return php_memc_do_version_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
+static memcached_return_t php_memc_do_serverlist_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
+static memcached_return_t php_memc_do_stats_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
+static memcached_return_t php_memc_do_version_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context);
 #endif
 static void php_memc_destroy(struct memc_obj *m_obj, zend_bool persistent TSRMLS_DC);
 
@@ -534,7 +534,7 @@ static void php_memc_get_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key)
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcc = empty_fcall_info_cache;
 	memcached_result_st result;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -647,7 +647,7 @@ static void php_memc_get_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key)
 		if (payload == NULL && status == MEMCACHED_NOTFOUND && fci.size != 0) {
 			size_t dummy_length;
 			uint32_t dummy_flags;
-			memcached_return dummy_status;
+			memcached_return_t dummy_status;
 
 			status = php_memc_do_cache_callback(getThis(), &fci, &fcc, key, key_len,
 												return_value TSRMLS_CC);
@@ -716,7 +716,7 @@ static void php_memc_getMulti_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_ke
 	int i = 0;
 	zend_bool preserve_order;
 	memcached_result_st result;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -891,7 +891,7 @@ static void php_memc_getDelayed_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcc = empty_fcall_info_cache;
 	int i = 0;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -1010,7 +1010,7 @@ PHP_METHOD(Memcached, fetch)
 	uint32_t flags = 0;
 	uint64_t cas = 0;
 	memcached_result_st result;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
@@ -1067,7 +1067,7 @@ PHP_METHOD(Memcached, fetchAll)
 	uint32_t flags;
 	uint64_t cas = 0;
 	memcached_result_st result;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
@@ -1206,7 +1206,7 @@ static void php_memc_setMulti_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_ke
 	size_t payload_len;
 	uint32_t flags = 0;
 	uint32_t retry = 0;
-	memcached_return status;
+	memcached_return_t status;
 	char  tmp_key[MEMCACHED_MAX_KEY];
 	MEMC_METHOD_INIT_VARS;
 
@@ -1352,7 +1352,7 @@ static void php_memc_store_impl(INTERNAL_FUNCTION_PARAMETERS, int op, zend_bool 
 	size_t payload_len;
 	uint32_t flags = 0;
 	uint32_t retry = 0;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -1520,7 +1520,7 @@ static void php_memc_cas_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key)
 	char  *payload;
 	size_t payload_len;
 	uint32_t flags = 0;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -1625,7 +1625,7 @@ static void php_memc_delete_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key)
 	char *server_key = NULL;
 	int   server_key_len = 0;
 	time_t expiration = 0;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -1670,7 +1670,7 @@ static void php_memc_deleteMulti_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by
 	time_t expiration = 0;
 	zval **entry;
 
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (by_key) {
@@ -1726,7 +1726,7 @@ static void php_memc_incdec_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool by_key,
 	long  offset = 1;
 	uint64_t value, initial = 0;
 	time_t expiry = 0;
-	memcached_return status;
+	memcached_return_t status;
 	int n_args = ZEND_NUM_ARGS();
 	uint32_t retry = 0;
 
@@ -1834,7 +1834,7 @@ PHP_METHOD(Memcached, addServer)
 	char *host;
 	int   host_len;
 	long  port, weight = 0;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl|l", &host, &host_len,
@@ -1871,7 +1871,7 @@ PHP_METHOD(Memcached, addServers)
 	uint32_t weight = 0;
 	int   entry_size, i = 0;
 	memcached_server_list_st list = NULL;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a/", &servers) == FAILURE) {
@@ -1951,7 +1951,7 @@ PHP_METHOD(Memcached, addServers)
 PHP_METHOD(Memcached, getServerList)
 {
 	struct callbackContext context = {0};
-	memcached_server_function callbacks[1];
+	memcached_server_fn callbacks[1];
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
@@ -1978,7 +1978,7 @@ PHP_METHOD(Memcached, getServerByKey)
 #else
 	memcached_server_instance_st *server_instance;
 #endif
-	memcached_return error;
+	memcached_return_t error;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &server_key, &server_key_len) == FAILURE) {
@@ -2121,9 +2121,9 @@ PHP_METHOD(Memcached, getLastDisconnectedServer)
 PHP_METHOD(Memcached, getStats)
 {
 	memcached_stat_st *stats;
-	memcached_return status;
+	memcached_return_t status;
 	struct callbackContext context = {0};
-	memcached_server_function callbacks[1];
+	memcached_server_fn callbacks[1];
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
@@ -2162,9 +2162,9 @@ PHP_METHOD(Memcached, getStats)
    Returns the version of each memcached server in the pool */
 PHP_METHOD(Memcached, getVersion)
 {
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	struct callbackContext context = {0};
-	memcached_server_function callbacks[1];
+	memcached_server_fn callbacks[1];
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
@@ -2190,7 +2190,7 @@ PHP_METHOD(Memcached, getVersion)
 
 /* {{{ Memcached::getAllKeys()
 	Returns the keys stored on all the servers */
-static memcached_return php_memc_dump_func_callback(const memcached_st *ptr __attribute__((unused)), \
+static memcached_return_t php_memc_dump_func_callback(const memcached_st *ptr __attribute__((unused)), \
 	const char *key, size_t key_length, void *context)
 {
 	zval *ctx = (zval*) context;
@@ -2201,8 +2201,8 @@ static memcached_return php_memc_dump_func_callback(const memcached_st *ptr __at
 
 PHP_METHOD(Memcached, getAllKeys)
 {
-	memcached_return rc;
-	memcached_dump_func callback[1];
+	memcached_return_t rc;
+	memcached_dump_fn callback[1];
 	MEMC_METHOD_INIT_VARS;
 
 	callback[0] = php_memc_dump_func_callback;
@@ -2222,7 +2222,7 @@ PHP_METHOD(Memcached, getAllKeys)
 static PHP_METHOD(Memcached, flush)
 {
 	time_t delay = 0;
-	memcached_return status;
+	memcached_return_t status;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &delay) == FAILURE) {
@@ -2247,7 +2247,7 @@ static PHP_METHOD(Memcached, getOption)
 {
 	long option;
 	uint64_t result;
-	memcached_behavior flag;
+	memcached_behavior_t flag;
 	MEMC_METHOD_INIT_VARS;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &option) == FAILURE) {
@@ -2265,7 +2265,7 @@ static PHP_METHOD(Memcached, getOption)
 
 		case MEMC_OPT_PREFIX_KEY:
 		{
-			memcached_return retval;
+			memcached_return_t retval;
 			char *result;
 
 			result = memcached_callback_get(m_obj->memc, MEMCACHED_CALLBACK_PREFIX_KEY, &retval);
@@ -2300,7 +2300,7 @@ static PHP_METHOD(Memcached, getOption)
 
 static int php_memc_set_option(php_memc_t *i_obj, long option, zval *value TSRMLS_DC)
 {
-	memcached_behavior flag;
+	memcached_behavior_t flag;
 	struct memc_obj *m_obj = i_obj->obj;
 
 	switch (option) {
@@ -2536,13 +2536,13 @@ static PHP_METHOD(Memcached, getResultMessage)
 			if (i_obj->memc_errno) {
 				char *str;
 				int str_len;
-				str_len = spprintf(&str, 0, "%s: %s", memcached_strerror(m_obj->memc, (memcached_return)i_obj->rescode),
+				str_len = spprintf(&str, 0, "%s: %s", memcached_strerror(m_obj->memc, (memcached_return_t)i_obj->rescode),
 					strerror(i_obj->memc_errno));
 				RETURN_STRINGL(str, str_len, 0);
 			}
 			/* Fall through */
 		default:
-			RETURN_STRING(memcached_strerror(m_obj->memc, (memcached_return)i_obj->rescode), 1);
+			RETURN_STRING(memcached_strerror(m_obj->memc, (memcached_return_t)i_obj->rescode), 1);
 			break;
 	}
 
@@ -2654,9 +2654,9 @@ ZEND_RSRC_DTOR_FUNC(php_memc_sess_dtor)
 
 /* {{{ internal API functions */
 #if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000009
-static memcached_return php_memc_do_serverlist_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
+static memcached_return_t php_memc_do_serverlist_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
 #else
-static memcached_return php_memc_do_serverlist_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
+static memcached_return_t php_memc_do_serverlist_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
 #endif
 {
 	struct callbackContext* context = (struct callbackContext*) in_context;
@@ -2676,9 +2676,9 @@ static memcached_return php_memc_do_serverlist_callback(const memcached_st *ptr,
 }
 
 #if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000009
-static memcached_return php_memc_do_stats_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
+static memcached_return_t php_memc_do_stats_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
 #else
-static memcached_return php_memc_do_stats_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
+static memcached_return_t php_memc_do_stats_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
 #endif
 {
 	char *hostport = NULL;
@@ -2724,9 +2724,9 @@ static memcached_return php_memc_do_stats_callback(const memcached_st *ptr, memc
 }
 
 #if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000009
-static memcached_return php_memc_do_version_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
+static memcached_return_t php_memc_do_version_callback(const memcached_st *ptr, const memcached_instance_st *instance, void *in_context)
 #else
-static memcached_return php_memc_do_version_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
+static memcached_return_t php_memc_do_version_callback(const memcached_st *ptr, memcached_server_instance_st instance, void *in_context)
 #endif
 {
 	char *hostport = NULL;
@@ -2752,7 +2752,7 @@ static memcached_return php_memc_do_version_callback(const memcached_st *ptr, me
 	return MEMCACHED_SUCCESS;
 }
 
-static int php_memc_handle_error(php_memc_t *i_obj, memcached_return status TSRMLS_DC)
+static int php_memc_handle_error(php_memc_t *i_obj, memcached_return_t status TSRMLS_DC)
 {
 	int result = 0;
 
@@ -3179,7 +3179,7 @@ zend_class_entry *php_memc_get_exception_base(int root TSRMLS_DC)
 #endif
 }
 
-static memcached_return php_memc_do_cache_callback(zval *zmemc_obj, zend_fcall_info *fci,
+static memcached_return_t php_memc_do_cache_callback(zval *zmemc_obj, zend_fcall_info *fci,
 	zend_fcall_info_cache *fcc, char *key,
 	size_t key_len, zval *value TSRMLS_DC)
 {
@@ -3191,9 +3191,9 @@ static memcached_return php_memc_do_cache_callback(zval *zmemc_obj, zend_fcall_i
 	zval *z_expiration;
 
 	uint32_t flags = 0;
-	memcached_return rc;
+	memcached_return_t rc;
 	php_memc_t* i_obj;
-	memcached_return status = MEMCACHED_SUCCESS;
+	memcached_return_t status = MEMCACHED_SUCCESS;
 	int result;
 
 	MAKE_STD_ZVAL(z_key);
@@ -3227,7 +3227,7 @@ static memcached_return php_memc_do_cache_callback(zval *zmemc_obj, zend_fcall_i
 
 			payload = php_memc_zval_to_payload(value, &payload_len, &flags, m_obj->serializer, m_obj->compression_type TSRMLS_CC);
 			if (payload == NULL) {
-				status = (memcached_return)MEMC_RES_PAYLOAD_FAILURE;
+				status = (memcached_return_t)MEMC_RES_PAYLOAD_FAILURE;
 			} else {
 				rc = memcached_set(m_obj->memc, key, key_len, payload, payload_len, expiration, flags);
 				if (rc == MEMCACHED_SUCCESS || rc == MEMCACHED_BUFFERED) {
