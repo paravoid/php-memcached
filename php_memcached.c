@@ -89,6 +89,10 @@ typedef unsigned long int uint32_t;
 # include "ext/igbinary/igbinary.h"
 #endif
 
+#if !defined(LIBMEMCACHED_VERSION_HEX) || LIBMEMCACHED_VERSION_HEX < 0x01000002
+#error "Too old libmemcached version"
+#endif
+
 /*
  * This is needed because PHP 5.3.[01] does not install JSON_parser.h by default. This
  * constant will move into php_json.h in the future anyway.
@@ -1130,7 +1134,6 @@ PHP_METHOD(Memcached, setByKey)
 }
 /* }}} */
 
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000002
 /* {{{ Memcached::touch(string key, [, int expiration ])
    Sets a new expiration for the given key */
 PHP_METHOD(Memcached, touch)
@@ -1146,7 +1149,6 @@ PHP_METHOD(Memcached, touchByKey)
     php_memc_store_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, MEMC_OP_TOUCH, 1);
 }
 /* }}} */
-#endif
 
 
 /* {{{ Memcached::setMulti(array items [, int expiration ])
@@ -2037,7 +2039,6 @@ PHP_METHOD(Memcached, quit)
 }
 /* }}} */
 
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 /* {{{ Memcached::getLastErrorMessage()
    Returns the last error message that occurred */
 PHP_METHOD(Memcached, getLastErrorMessage)
@@ -2085,7 +2086,6 @@ PHP_METHOD(Memcached, getLastErrorErrno)
 	RETURN_LONG(memcached_last_error_errno(m_obj->memc));
 }
 /* }}} */
-#endif
 
 /* {{{ Memcached::getLastDisconnectedServer()
    Returns the last disconnected server
@@ -2270,11 +2270,7 @@ static PHP_METHOD(Memcached, getOption)
 
 			result = memcached_callback_get(m_obj->memc, MEMCACHED_CALLBACK_PREFIX_KEY, &retval);
 			if (retval == MEMCACHED_SUCCESS && result) {
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX == 0x00049000
-				RETURN_STRINGL(result, strlen(result) - 1,  1);
-#else
 				RETURN_STRING(result, 1);
-#endif
 			} else {
 				RETURN_EMPTY_STRING();
 			}
@@ -2327,9 +2323,6 @@ static int php_memc_set_option(php_memc_t *i_obj, long option, zval *value TSRML
 		case MEMC_OPT_PREFIX_KEY:
 		{
 			char *key;
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX == 0x00049000
-			char tmp[MEMCACHED_PREFIX_KEY_MAX_SIZE - 1];
-#endif
 			convert_to_string(value);
 			if (Z_STRLEN_P(value) == 0) {
 				key = NULL;
@@ -2338,12 +2331,7 @@ static int php_memc_set_option(php_memc_t *i_obj, long option, zval *value TSRML
 				   work-around a bug in libmemcached in version 0.49 that truncates the trailing
 				   character of the key prefix, to avoid the issue we pad it with a '0'
 				*/
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX == 0x00049000
-				snprintf(tmp, sizeof(tmp), "%s0", Z_STRVAL_P(value));
-				key = tmp;
-#else
 				key = Z_STRVAL_P(value);
-#endif
 			}
 			if (memcached_callback_set(m_obj->memc, MEMCACHED_CALLBACK_PREFIX_KEY, key) == MEMCACHED_BAD_KEY_PROVIDED) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "bad key provided");
@@ -2367,14 +2355,9 @@ static int php_memc_set_option(php_memc_t *i_obj, long option, zval *value TSRML
 			 * (non-weighted) case. We have to clean up ourselves.
 			 */
 			if (!Z_LVAL_P(value)) {
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX > 0x00037000
 			(void)memcached_behavior_set_key_hash(m_obj->memc, MEMCACHED_HASH_DEFAULT);
 			(void)memcached_behavior_set_distribution_hash(m_obj->memc, MEMCACHED_HASH_DEFAULT);
 			(void)memcached_behavior_set_distribution(m_obj->memc, MEMCACHED_DISTRIBUTION_MODULA);
-#else
-				m_obj->memc->hash = 0;
-				m_obj->memc->distribution = 0;
-#endif
 			}
 			break;
 
@@ -2412,10 +2395,7 @@ static int php_memc_set_option(php_memc_t *i_obj, long option, zval *value TSRML
 			flag = (memcached_behavior) option;
 			convert_to_long(value);
 			if (flag < 0 ||
-/* MEMCACHED_BEHAVIOR_MAX was added in somewhere around 0.36 or 0.37 */
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00037000
 				flag >= MEMCACHED_BEHAVIOR_MAX ||
-#endif
 				memcached_behavior_set(m_obj->memc, flag, (uint64_t)Z_LVAL_P(value)) != MEMCACHED_SUCCESS) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "error setting memcached option");
 				return 0;
@@ -2794,23 +2774,13 @@ static int php_memc_handle_error(php_memc_t *i_obj, memcached_return status TSRM
 
 		case MEMCACHED_SOME_ERRORS:
 			i_obj->rescode = status;
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 			i_obj->memc_errno = memcached_last_error_errno(i_obj->obj->memc);
-#else
-			i_obj->memc_errno = i_obj->obj->memc->cached_errno;	/* Hnngghgh! */
-
-#endif
 			result = 0;
 			break;
 
 		default:
 			i_obj->rescode = status;
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 			i_obj->memc_errno = memcached_last_error_errno(i_obj->obj->memc);
-#else
-			i_obj->memc_errno = i_obj->obj->memc->cached_errno; /* Hnngghgh! */
-
-#endif
 			result = -1;
 			break;
 	}
@@ -3656,10 +3626,8 @@ static zend_function_entry memcached_class_methods[] = {
 
 	MEMC_ME(set,                arginfo_set)
 	MEMC_ME(setByKey,           arginfo_setByKey)
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x01000002
 	MEMC_ME(touch,              arginfo_touch)
 	MEMC_ME(touchByKey,         arginfo_touchByKey)
-#endif
 	MEMC_ME(setMulti,           arginfo_setMulti)
 	MEMC_ME(setMultiByKey,      arginfo_setMultiByKey)
 
@@ -3690,11 +3658,9 @@ static zend_function_entry memcached_class_methods[] = {
     MEMC_ME(resetServerList,    arginfo_resetServerList)
     MEMC_ME(quit,               arginfo_quit)
 
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 	MEMC_ME(getLastErrorMessage,		arginfo_getLastErrorMessage)
 	MEMC_ME(getLastErrorCode,		arginfo_getLastErrorCode)
 	MEMC_ME(getLastErrorErrno,		arginfo_getLastErrorErrno)
-#endif
 	MEMC_ME(getLastDisconnectedServer,	arginfo_getLastDisconnectedServer)
 
 	MEMC_ME(getStats,           arginfo_getStats)
@@ -3821,9 +3787,7 @@ static void php_memc_register_constants(INIT_FUNC_ARGS)
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_DISTRIBUTION, MEMCACHED_BEHAVIOR_DISTRIBUTION);
 	REGISTER_MEMC_CLASS_CONST_LONG(DISTRIBUTION_MODULA, MEMCACHED_DISTRIBUTION_MODULA);
 	REGISTER_MEMC_CLASS_CONST_LONG(DISTRIBUTION_CONSISTENT, MEMCACHED_DISTRIBUTION_CONSISTENT);
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 	REGISTER_MEMC_CLASS_CONST_LONG(DISTRIBUTION_VIRTUAL_BUCKET, MEMCACHED_DISTRIBUTION_VIRTUAL_BUCKET);
-#endif
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_LIBKETAMA_COMPATIBLE, MEMCACHED_BEHAVIOR_KETAMA_WEIGHTED);
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_LIBKETAMA_HASH, MEMCACHED_BEHAVIOR_KETAMA_HASH);
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_TCP_KEEPALIVE, MEMCACHED_BEHAVIOR_TCP_KEEPALIVE);
@@ -3849,13 +3813,9 @@ static void php_memc_register_constants(INIT_FUNC_ARGS)
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_SORT_HOSTS, MEMCACHED_BEHAVIOR_SORT_HOSTS);
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_VERIFY_KEY, MEMCACHED_BEHAVIOR_VERIFY_KEY);
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_USE_UDP, MEMCACHED_BEHAVIOR_USE_UDP);
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00037000
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_NUMBER_OF_REPLICAS, MEMCACHED_BEHAVIOR_NUMBER_OF_REPLICAS);
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_RANDOMIZE_REPLICA_READ, MEMCACHED_BEHAVIOR_RANDOMIZE_REPLICA_READ);
-#endif
-#if defined(LIBMEMCACHED_VERSION_HEX) && LIBMEMCACHED_VERSION_HEX >= 0x00049000
 	REGISTER_MEMC_CLASS_CONST_LONG(OPT_REMOVE_FAILED_SERVERS, MEMCACHED_BEHAVIOR_REMOVE_FAILED_SERVERS);
-#endif
 
 	/*
 	 * libmemcached result codes
